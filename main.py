@@ -800,10 +800,14 @@ HTML_CONTENT = """<!DOCTYPE html>
             const heavyProb = Math.min(0.5, 0.15 + score * 0.015);
             const isHeavy = Math.random() < heavyProb;
 
+            // Safe screen margin (keeps drones clearly visible on all screen sizes)
+            const margin = Math.max(120, c.width * 0.14);
+            const spawnX = margin + Math.random() * (c.width - margin * 2);
+
             drones.push({
-                x: 60 + Math.random() * (c.width - 120),
+                x: spawnX,
                 y: -20,
-                vx: (Math.random() - 0.5) * 0.35,
+                vx: (Math.random() - 0.5) * 0.25,
                 vy: isHeavy ? baseSpd * 0.75 : baseSpd,
                 hp: isHeavy ? (score >= 25 ? 3 : 2) : 1,
                 size: isHeavy ? 18 : 11,
@@ -964,12 +968,22 @@ HTML_CONTENT = """<!DOCTYPE html>
                 }
             }
 
-            // Drones (Delta time applied)
+            // Drones (Delta time applied + screen margin bounce)
+            const sideMargin = Math.max(90, c.width * 0.1);
             for (let i = drones.length - 1; i >= 0; i--) {
                 const d = drones[i];
                 d.wobble += 0.03 * dt;
                 d.x += (d.vx + Math.sin(d.wobble) * 0.3) * dt;
                 d.y += d.vy * dt;
+
+                // Keep away from screen edges
+                if (d.x < sideMargin) {
+                    d.x = sideMargin;
+                    d.vx = Math.abs(d.vx);
+                } else if (d.x > c.width - sideMargin) {
+                    d.x = c.width - sideMargin;
+                    d.vx = -Math.abs(d.vx);
+                }
 
                 if (d.y >= c.height - 55) {
                     explode(d.x, d.y, "#fc3f1d", 18);
