@@ -536,10 +536,10 @@ HTML_CONTENT = """<!DOCTYPE html>
         let particles = [];
         let rebPulse = null;
 
-        // REB Cooldown
+        // REB Cooldown (15 sec)
         let rebReady = true;
         let rebTimer = 0;
-        const rebCD = 7000;
+        const rebCD = 15000;
 
         let lastFireTime = 0;
 
@@ -762,7 +762,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             if (!rebReady || !active) return;
             rebReady = false;
             rebTimer = Date.now();
-            document.getElementById("rebText").innerText = "7с";
+            document.getElementById("rebText").innerText = "15с";
             document.getElementById("rebText").style.color = "var(--text-dim)";
 
             rebPulse = { radius: 10, max: c.width * 0.75, alpha: 1.0 };
