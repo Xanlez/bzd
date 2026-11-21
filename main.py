@@ -826,16 +826,18 @@ HTML_CONTENT = """<!DOCTYPE html>
             }
         }
 
-        // Loop
-        function update() {
+        // Loop with Delta Time (FPS-independent physics)
+        let lastFrameTime = performance.now();
+
+        function update(dt) {
             if (!active) return;
 
             // Rotate search radar
-            turret.radarAngle += 0.05;
+            turret.radarAngle += 0.05 * dt;
 
             // Keyboard turret movement
-            if (keys.left) turret.angle -= 0.04;
-            if (keys.right) turret.angle += 0.04;
+            if (keys.left) turret.angle -= 0.04 * dt;
+            if (keys.right) turret.angle += 0.04 * dt;
             if (turret.angle > -0.1) turret.angle = -0.1;
             if (turret.angle < -Math.PI + 0.1) turret.angle = -Math.PI + 0.1;
 
@@ -874,8 +876,8 @@ HTML_CONTENT = """<!DOCTYPE html>
             // Bullets
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const b = bullets[i];
-                b.x += b.vx;
-                b.y += b.vy;
+                b.x += b.vx * dt;
+                b.y += b.vy * dt;
                 if (b.x < 0 || b.x > c.width || b.y < 0 || b.y > c.height) {
                     bullets.splice(i, 1);
                     continue;
@@ -901,7 +903,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             // Pantsir Missiles (Homing Physics with Smoke Trail)
             for (let i = missiles.length - 1; i >= 0; i--) {
                 const m = missiles[i];
-                if (m.speed < m.maxSpeed) m.speed += 0.45;
+                if (m.speed < m.maxSpeed) m.speed += 0.45 * dt;
 
                 if (!m.target || !drones.includes(m.target)) {
                     m.target = findBestTarget();
@@ -912,23 +914,25 @@ HTML_CONTENT = """<!DOCTYPE html>
                     let diff = targetAngle - m.angle;
                     while (diff < -Math.PI) diff += Math.PI * 2;
                     while (diff > Math.PI) diff -= Math.PI * 2;
-                    m.angle += diff * 0.12;
+                    m.angle += diff * Math.min(1, 0.12 * dt);
                 }
 
                 m.vx = Math.cos(m.angle) * m.speed;
                 m.vy = Math.sin(m.angle) * m.speed;
-                m.x += m.vx;
-                m.y += m.vy;
+                m.x += m.vx * dt;
+                m.y += m.vy * dt;
 
                 // Smoke trail
-                particles.push({
-                    x: m.x - Math.cos(m.angle) * 10,
-                    y: m.y - Math.sin(m.angle) * 10,
-                    vx: (Math.random() - 0.5) * 1,
-                    vy: (Math.random() - 0.5) * 1,
-                    color: Math.random() < 0.5 ? "#fb923c" : "#94a3b8",
-                    life: 18
-                });
+                if (Math.random() < 0.8 * dt) {
+                    particles.push({
+                        x: m.x - Math.cos(m.angle) * 10,
+                        y: m.y - Math.sin(m.angle) * 10,
+                        vx: (Math.random() - 0.5) * 1,
+                        vy: (Math.random() - 0.5) * 1,
+                        color: Math.random() < 0.5 ? "#fb923c" : "#94a3b8",
+                        life: 18
+                    });
+                }
 
                 if (m.x < -50 || m.x > c.width + 50 || m.y < -50 || m.y > c.height) {
                     missiles.splice(i, 1);
@@ -960,12 +964,12 @@ HTML_CONTENT = """<!DOCTYPE html>
                 }
             }
 
-            // Drones
+            // Drones (Delta time applied)
             for (let i = drones.length - 1; i >= 0; i--) {
                 const d = drones[i];
-                d.wobble += 0.03;
-                d.x += d.vx + Math.sin(d.wobble) * 0.3;
-                d.y += d.vy;
+                d.wobble += 0.03 * dt;
+                d.x += (d.vx + Math.sin(d.wobble) * 0.3) * dt;
+                d.y += d.vy * dt;
 
                 if (d.y >= c.height - 55) {
                     explode(d.x, d.y, "#fc3f1d", 18);
@@ -982,7 +986,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 
             // REB Pulse
             if (rebPulse) {
-                rebPulse.radius += 14;
+                rebPulse.radius += 14 * dt;
                 rebPulse.alpha = 1 - (rebPulse.radius / rebPulse.max);
                 if (rebPulse.radius >= rebPulse.max) rebPulse = null;
             }
@@ -990,9 +994,9 @@ HTML_CONTENT = """<!DOCTYPE html>
             // Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life--;
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= 1 * dt;
                 if (p.life <= 0) particles.splice(i, 1);
             }
         }
@@ -1181,12 +1185,21 @@ HTML_CONTENT = """<!DOCTYPE html>
             ctx.restore();
         }
 
-        function anim() {
-            update();
+        function anim(now) {
+            if (!now) now = performance.now();
+            // Delta time normalized to 60 FPS (16.67ms = 1.0)
+            let dt = (now - lastFrameTime) / (1000 / 60);
+            lastFrameTime = now;
+
+            // Clamp dt to avoid huge jumps on tab switch/lag spikes
+            if (dt > 3.0) dt = 3.0;
+            if (dt < 0.1) dt = 0.1;
+
+            update(dt);
             draw();
             requestAnimationFrame(anim);
         }
-        anim();
+        anim(performance.now());
     </script>
 </body>
 </html>
